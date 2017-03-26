@@ -48,7 +48,7 @@ public class GoogleGeocoder extends JsonGeocoder {
 
             for (JsonObject component : components.getValuesAs(JsonObject.class)) {
 
-                String value = component.getString("short_name");
+                String value = component.getString("long_name");
 
                 typesLoop: for (JsonString type : component.getJsonArray("types").getValuesAs(JsonString.class)) {
 
@@ -61,6 +61,11 @@ public class GoogleGeocoder extends JsonGeocoder {
                             break typesLoop;
                         case "locality":
                             address.setSettlement(value);
+                            break typesLoop;
+                        case "administrative_area_level_4":
+                            break typesLoop;
+                        case "administrative_area_level_3":
+                            address.setState(value);
                             break typesLoop;
                         case "administrative_area_level_2":
                             address.setDistrict(value);
