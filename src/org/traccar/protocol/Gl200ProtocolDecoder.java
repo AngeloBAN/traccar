@@ -117,8 +117,8 @@ public class Gl200ProtocolDecoder extends BaseProtocolDecoder {
             .number("(dd)(dd)(dd)").optional(2)  // time (hhmmss)
             .text(",")
             .groupBegin()
-            .number("(0ddd)?,")                  // mcc
-            .number("(0ddd)?,")                  // mnc
+            .number("(d{1,4})?,")                // mcc
+            .number("(d{1,4})?,")                // mnc
             .number("(xxxx)?,")                  // lac
             .number("(xxxx)?,")                  // cell
             .or()
@@ -297,11 +297,12 @@ public class Gl200ProtocolDecoder extends BaseProtocolDecoder {
             .number("(dddd)(dd)(dd)")            // date (yyyymmdd)
             .number("(dd)(dd)(dd)").optional(2)  // time (hhmmss)
             .text(",")
-            .number("(0ddd),")                   // mcc
-            .number("(0ddd),")                   // mnc
+            .number("(d{1,4}),")                 // mcc
+            .number("(d{1,4}),")                 // mnc
             .number("(xxxx),")                   // lac
             .number("(xxxx),").optional(4)       // cell
             .any()
+            .number("(d{1,3})")                  // battery %
             .number("(dddd)(dd)(dd)")            // date (yyyymmdd)
             .number("(dd)(dd)(dd)").optional(2)  // time (hhmmss)
             .text(",")
@@ -755,6 +756,7 @@ public class Gl200ProtocolDecoder extends BaseProtocolDecoder {
         }
 
         if (parser.hasNext(6)) {
+            position.set(Position.KEY_BATTERY, parser.nextInt());
             Date date = parser.nextDateTime();
             if (!position.getOutdated() && position.getFixTime().after(date)) {
                 position.setTime(date);
