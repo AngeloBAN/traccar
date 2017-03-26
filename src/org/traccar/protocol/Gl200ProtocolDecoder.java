@@ -836,10 +836,7 @@ public class Gl200ProtocolDecoder extends BaseProtocolDecoder {
 
         if (parser.hasNext(6)) {
             position.set(Position.KEY_BATTERY, parser.nextInt());
-            Date date = parser.nextDateTime();
-            if (!position.getOutdated() && position.getFixTime().after(date)) {
-                position.setTime(date);
-            }
+            position.setTime(parser.nextDateTime());
         }
 
         switch (type) {
