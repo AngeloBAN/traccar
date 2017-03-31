@@ -337,6 +337,32 @@ public class Gl200ProtocolDecoder extends BaseProtocolDecoder {
             .text("$").optional()
             .compile();
 
+    private static final Pattern PATTERN_BTC = new PatternBuilder()
+            .text("+").expression("(?:RESP|BUFF):GTBTC,")
+            .number("(?:[0-9A-Z]{2}xxxx)?,")     // protocol version
+            .number("(d{15}|x{14}),")            // imei
+            .any()
+            .number("(d{1,2})?,")                // hdop
+            .number("(d{1,3}.d)?,")              // speed
+            .number("(d{1,3})?,")                // course
+            .number("(-?d{1,5}.d)?,")            // altitude
+            .number("(-?d{1,3}.d{6})?,")         // longitude
+            .number("(-?d{1,2}.d{6})?,")         // latitude
+            .number("(dddd)(dd)(dd)")            // date (yyyymmdd)
+            .number("(dd)(dd)(dd)").optional(2)  // time (hhmmss)
+            .text(",")
+            .number("(d{1,4}),")                 // mcc
+            .number("(d{1,4}),")                 // mnc
+            .number("(xxxx),")                   // lac
+            .number("(xxxx),").optional(4)       // cell
+            .any()
+            .number("(dddd)(dd)(dd)")            // date (yyyymmdd)
+            .number("(dd)(dd)(dd)").optional(2)  // time (hhmmss)
+            .text(",")
+            .number("(xxxx)")                    // count number
+            .text("$").optional()
+            .compile();
+
     private Object decodeAck(Channel channel, SocketAddress remoteAddress, String sentence, String type) {
         Parser parser = new Parser(PATTERN_ACK, sentence);
         if (parser.matches()) {
@@ -743,6 +769,51 @@ public class Gl200ProtocolDecoder extends BaseProtocolDecoder {
         return position;
     }
 
+    private Object decodeBtc(Channel channel, SocketAddress remoteAddress, String sentence) {
+        Parser parser = new Parser(PATTERN_BTC, sentence);
+        if (!parser.matches()) {
+            return null;
+        }
+
+        DeviceSession deviceSession = getDeviceSession(channel, remoteAddress, parser.next());
+        if (deviceSession == null) {
+            return null;
+        }
+
+        Position position = new Position();
+        position.setProtocol(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+
+        int hdop = parser.nextInt();
+        position.setValid(hdop > 0);
+        position.set(Position.KEY_HDOP, hdop);
+        position.setSpeed(UnitsConverter.knotsFromKph(parser.nextDouble()));
+        position.setCourse(parser.nextDouble());
+        position.setAltitude(parser.nextDouble());
+
+        if (parser.hasNext(2)) {
+            position.setLongitude(parser.nextDouble());
+            position.setLatitude(parser.nextDouble());
+        } else {
+            getLastLocation(position, null);
+        }
+
+        if (parser.hasNext(5)) {
+            position.setTime(parser.nextDateTime());
+        }
+
+        if (parser.hasNext(4)) {
+            position.setNetwork(new Network(CellTower.from(
+                parser.nextInt(), parser.nextInt(), parser.nextInt(16), parser.nextInt(16))));
+        }
+
+        if (parser.hasNext(3)) {
+            position.setTime(parser.nextDateTime());
+        }
+
+        return position;
+    }
+
     private Object decodeBpl(Channel channel, SocketAddress remoteAddress, String sentence) {
         Parser parser = new Parser(PATTERN_BPL, sentence);
         if (!parser.matches()) {
@@ -898,6 +969,9 @@ public class Gl200ProtocolDecoder extends BaseProtocolDecoder {
                     break;
                 case "BPL":
                     result = decodeBpl(channel, remoteAddress, sentence);
+                    break;
+                case "BTC":
+                    result = decodeBtc(channel, remoteAddress, sentence);
                     break;
                 default:
                     result = decodeOther(channel, remoteAddress, sentence, type);
